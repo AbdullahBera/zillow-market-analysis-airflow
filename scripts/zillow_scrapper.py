@@ -13,7 +13,7 @@ from datetime import datetime
 
 # Setup Logging
 log_file = "../logs/scraper.log"
-os.makedirs(os.path.dirname(log_file), exist_ok=True)  # Create logs/ folder if not exists
+os.makedirs(os.path.dirname(log_file), exist_ok=True)
 logging.basicConfig(filename=log_file, level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
 # Function to extract structured details (beds, baths, sqft)
@@ -40,9 +40,6 @@ def load_cookies(driver, cookie_file="../data/zillow_cookies.pkl"):
 
 # Function to Scroll Until No More Listings Load
 def scroll_and_load(driver, max_scrolls=30):
-    """
-    Scrolls dynamically until no new listings appear.
-    """
     logging.info("🔄 Starting deep scrolling to load all listings...")
 
     last_count = 0
@@ -64,116 +61,99 @@ def scroll_and_load(driver, max_scrolls=30):
 
 # Function to Click "Next Page" Until No More Pages
 def click_next_page(driver):
-    """
-    Clicks the 'Next' button to load more listings.
-    """
     try:
         next_button = driver.find_element(By.XPATH, "//a[@title='Next page']")
         next_button.click()
-        time.sleep(random.uniform(3, 6))  # ✅ Mimic human clicking
+        time.sleep(random.uniform(3, 6))
         logging.info("✅ Clicked 'Next Page'.")
         return True
     except:
         logging.info("✅ No more pages found.")
         return False
 
-# Start WebDriver using `undetected-chromedriver`
-options = uc.ChromeOptions()
-options.add_argument("--disable-blink-features=AutomationControlled")
-options.add_argument("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36")
+# Function to save data to CSV
+def save_data_to_csv(data, csv_path):
+    df = pd.DataFrame(data)
+    df.to_csv(csv_path, index=False)
+    logging.info(f"✅ Data saved to {csv_path}.")
 
-# Use version_main=131 to match your Chrome version
-logging.info("🚀 Starting Zillow Scraper...")
-driver = uc.Chrome(options=options, version_main=131)
+# Main scraping function
+def scrape_zillow():
+    options = uc.ChromeOptions()
+    options.add_argument("--disable-blink-features=AutomationControlled")
+    options.add_argument("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36")
 
-# Load Zillow
-driver.get("https://www.zillow.com/homes/New-York,-NY_rb/")
-time.sleep(5)
+    logging.info("🚀 Starting Zillow Scraper...")
+    driver = uc.Chrome(options=options, version_main=131)
 
-# Load cookies to avoid CAPTCHA
-load_cookies(driver)
+    try:
+        driver.get("https://www.zillow.com/homes/San-Francisco,-CA_rb/")
+        time.sleep(5)
 
-# Refresh to apply cookies
-driver.get("https://www.zillow.com/homes/New-York,-NY_rb/")
-time.sleep(5)
+        load_cookies(driver)
+        driver.get("https://www.zillow.com/homes/San-Francisco,-CA_rb/")
+        time.sleep(5)
 
-# Wait for listings to load
-WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.XPATH, "//article")))
-logging.info("✅ Listings loaded successfully.")
+        WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.XPATH, "//article")))
+        logging.info("✅ Listings loaded successfully.")
 
-# Extract property listings
-listings = []
-page = 1
+        listings = []
+        page = 1
 
-while True:
-    scroll_and_load(driver)
+        while True:
+            scroll_and_load(driver)
 
-    elements = driver.find_elements(By.XPATH, "//article")
-    logging.info(f"✅ Page {page}: Found {len(elements)} listings.")
+            elements = driver.find_elements(By.XPATH, "//article")
+            logging.info(f"✅ Page {page}: Found {len(elements)} listings.")
 
-    for element in elements:
-        try:
-            # Extract price
-            price_element = element.find_elements(By.XPATH, ".//span[@data-test='property-card-price']")
-            price = price_element[0].text if price_element else "N/A"
+            for element in elements:
+                try:
+                    price_element = element.find_elements(By.XPATH, ".//span[@data-test='property-card-price']")
+                    price = price_element[0].text if price_element else "N/A"
 
-            # Extract address
-            address_element = element.find_elements(By.XPATH, ".//address")
-            address = address_element[0].text if address_element else "N/A"
+                    address_element = element.find_elements(By.XPATH, ".//address")
+                    address = address_element[0].text if address_element else "N/A"
 
-            # Extract details (beds, baths, sqft)
-            details_element = element.find_elements(By.XPATH, ".//ul")
-            details_text = details_element[0].text if details_element else "N/A"
-            details = extract_details(details_text)
+                    details_element = element.find_elements(By.XPATH, ".//ul")
+                    details_text = details_element[0].text if details_element else "N/A"
+                    details = extract_details(details_text)
 
-            # Add timestamp
-            scraped_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                    scraped_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-            listings.append({
-                "price": price,
-                "address": address,
-                "bedrooms": details["bedrooms"],
-                "bathrooms": details["bathrooms"],
-                "square_feet": details["square_feet"],
-                "scraped_at": scraped_at 
-            })
+                    listings.append({
+                        "price": price,
+                        "address": address,
+                        "bedrooms": details["bedrooms"],
+                        "bathrooms": details["bathrooms"],
+                        "square_feet": details["square_feet"],
+                        "scraped_at": scraped_at 
+                    })
 
-            logging.info(f"✅ Scraped listing: {address} | Price: {price} | Scraped at: {scraped_at}")
+                    logging.info(f"✅ Scraped listing: {address} | Price: {price} | Scraped at: {scraped_at}")
 
-        except Exception as e:
-            logging.error(f"❌ Error processing listing: {e}")
-            continue
+                except Exception as e:
+                    logging.error(f"❌ Error processing listing: {e}")
+                    continue
 
-    # Click next page if available
-    if not click_next_page(driver):
-        break  # Stop when no more pages exist
+            if page >= 10:
+                logging.info("✅ Reached the limit of 10 pages.")
+                break
 
-    page += 1 
+            if not click_next_page(driver):
+                break
 
-# Close WebDriver
-driver.quit()
-logging.info("🚪 WebDriver closed successfully.")
+            page += 1
 
-# Load existing data if available
-csv_path = "../data/zillow_data.csv"
-if os.path.exists(csv_path):
-    df_existing = pd.read_csv(csv_path)
-else:
-    df_existing = pd.DataFrame(columns=["price", "address", "bedrooms", "bathrooms", "square_feet", "scraped_at"])
+        if listings:
+            csv_path = "../data/zillow_data.csv"
+            save_data_to_csv(listings, csv_path)
+            logging.info(f"✅ Data saved to {csv_path}. Total listings: {len(listings)}")
+        else:
+            logging.warning("⚠️ No listings were scraped.")
 
-# Convert existing data into a set to check for new entries
-existing_entries = set(df_existing["address"]) if not df_existing.empty else set()
+    finally:
+        driver.quit()
+        logging.info("🚪 WebDriver closed successfully.")
 
-# Filter out duplicate listings
-new_listings = [listing for listing in listings if listing["address"] not in existing_entries]
-
-# Append new listings only
-if new_listings:
-    df_new = pd.DataFrame(new_listings)
-    df_final = pd.concat([df_existing, df_new], ignore_index=True)
-    df_final.to_csv(csv_path, index=False)
-    logging.info(f"✅ {len(new_listings)} new listings added.")
-else:
-    logging.info("✅ No new listings found. Data is up-to-date.")
-
-logging.info("✅ Scraping complete! Data saved to '../data/zillow_data.csv'.")
+if __name__ == "__main__":
+    scrape_zillow()
