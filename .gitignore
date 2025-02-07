@@ -1,4 +1,7 @@
-data/
-
+data/zillow_cookies.pkl
+data/zillow_data.csv
 
 logs/scraper.log
+
+.env
+*.pycg
