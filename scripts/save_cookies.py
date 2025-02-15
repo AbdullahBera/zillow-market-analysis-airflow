@@ -4,6 +4,7 @@ import time
 import os
 import logging
 
+
 # Setup Logging
 log_file = "../logs/scraper.log"
 os.makedirs(os.path.dirname(log_file), exist_ok=True)
