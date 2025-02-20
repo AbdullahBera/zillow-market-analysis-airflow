@@ -4,6 +4,8 @@ An end-to-end data pipeline built using Apache Airflow to automate the extractio
 
 Next steps:
 
-- Connect to Airflow
-
 - Make it scrap different listings in one go. 
+
+- Convert S3 bucket data into an API 
+
+- Create a pipeline to run the analysis'
