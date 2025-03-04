@@ -9,3 +9,8 @@ Next steps:
 - Convert S3 bucket data into an API 
 
 - Create a pipeline to run the analysis'
+
+- Create a dashboard to see the analysis in real time 
+
+
+Object: Learn how to create ETL piplines off of local host. 
